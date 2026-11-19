@@ -1,0 +1,50 @@
+@import 'tailwindcss';
+
+/* Original palette: charcoal/navy surfaces with a mint-green accent. */
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
+
+  --color-night-950: #070b14;
+  --color-night-900: #0c1220;
+  --color-night-800: #131b2e;
+  --color-night-700: #1c2740;
+  --color-night-600: #2a3755;
+  --color-night-400: #6b7a99;
+  --color-night-300: #a9b4cc;
+  --color-night-100: #e6eaf2;
+
+  --color-mint-300: #7ff0c0;
+  --color-mint-400: #3ee6a0;
+  --color-mint-500: #16c784;
+  --color-mint-600: #0fa36b;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-night-950);
+    color: var(--color-night-100);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-mint-400);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
