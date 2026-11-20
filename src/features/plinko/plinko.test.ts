@@ -12,7 +12,13 @@ import {
   readPlinkoSettings,
 } from '../../lib/plinko';
 import { adjustedStake, stakeProblem } from '../games/stake';
-import { createPlinkoVisualState, dropProgress, setBoard, startDrop } from './plinkoVisualState';
+import {
+  createPlinkoVisualState,
+  dropProgress,
+  setBoard,
+  settleDrops,
+  startDrop,
+} from './plinkoVisualState';
 
 const TABLE_8_LOW = [360, 230, 141, 85, 50, 85, 141, 230, 360];
 const settingsPayload = {
@@ -124,36 +130,53 @@ describe('ball path geometry', () => {
 });
 
 describe('plinko visual state', () => {
-  it('keeps the last landed ball until the board changes', () => {
+  it('keeps balls and the last landing until the board changes', () => {
     const visual = createPlinkoVisualState(false, 8);
     setBoard(visual, 8, TABLE_8_LOW);
     startDrop(visual, round(), TABLE_8_LOW, 1000);
     setBoard(visual, 8, TABLE_8_LOW);
-    expect(visual.drop).not.toBeNull();
+    expect(visual.drops).toHaveLength(1);
     setBoard(visual, 8, [620, 300, 146, 74, 40, 74, 146, 300, 620]);
-    expect(visual.drop).toBeNull();
+    expect(visual.drops).toHaveLength(0);
+    expect(visual.lastLanding).toBeNull();
   });
 
   it('animates normally and lands at the end', () => {
     const visual = createPlinkoVisualState(false, 8);
     const duration = startDrop(visual, round(), TABLE_8_LOW, 1000);
     expect(duration).toBe(dropDurationMs(8));
-    expect(dropProgress(visual.drop!, 1000)).toBe(0);
-    expect(dropProgress(visual.drop!, 1000 + duration / 2)).toBeCloseTo(0.5);
-    expect(dropProgress(visual.drop!, 1000 + duration + 50)).toBe(1);
+    const drop = visual.drops[0];
+    expect(dropProgress(drop, 1000)).toBe(0);
+    expect(dropProgress(drop, 1000 + duration / 2)).toBeCloseTo(0.5);
+    expect(dropProgress(drop, 1000 + duration + 50)).toBe(1);
+  });
+
+  it('keeps several balls in flight and remembers the latest landing', () => {
+    const visual = createPlinkoVisualState(false, 8);
+    const duration = startDrop(visual, round({ roundId: 'a', bucket: 4 }), TABLE_8_LOW, 0);
+    startDrop(visual, round({ roundId: 'b', path: [1, 1, 1, 1, 1, 0, 0, 0], bucket: 5 }), TABLE_8_LOW, 300);
+    expect(visual.drops).toHaveLength(2);
+
+    settleDrops(visual, duration + 10);
+    expect(visual.drops.map((d) => d.roundId)).toEqual(['b']);
+    expect(visual.lastLanding).toEqual({ roundId: 'a', bucket: 4, at: duration });
+
+    settleDrops(visual, duration + 400);
+    expect(visual.drops).toHaveLength(0);
+    expect(visual.lastLanding?.roundId).toBe('b');
   });
 
   it('still animates the fall under reduced motion', () => {
     const visual = createPlinkoVisualState(true, 8);
     expect(startDrop(visual, round(), TABLE_8_LOW, 0)).toBe(dropDurationMs(8));
-    expect(dropProgress(visual.drop!, 0)).toBe(0);
+    expect(dropProgress(visual.drops[0], 0)).toBe(0);
   });
 
   it('skips the animation only when the path is unusable', () => {
     const bad = createPlinkoVisualState(false, 8);
     expect(startDrop(bad, round({ path: [1, 1] }), TABLE_8_LOW, 0)).toBe(0);
-    expect(bad.drop?.bucket).toBe(4);
-    expect(bad.drop?.path).toEqual([]);
+    expect(bad.drops[0].bucket).toBe(4);
+    expect(bad.drops[0].path).toEqual([]);
   });
 });
 

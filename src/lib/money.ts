@@ -54,3 +54,13 @@ export function parseCoins(input: string, decimals: number = env.coinDecimals): 
   }
   return { ok: true, value: Number(value) };
 }
+
+/**
+ * Display-only estimate of stake x multiplier, rounded down the same way as the server.
+ * Used for "potential payout" labels; the server's settlement is always the final figure.
+ */
+export function estimatePayout(stake: number, multiplierX100: number): number {
+  if (!Number.isSafeInteger(stake) || !Number.isSafeInteger(multiplierX100)) return 0;
+  const product = stake * multiplierX100;
+  return (product - (product % 100)) / 100;
+}

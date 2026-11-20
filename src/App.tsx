@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 import { RequireAuth } from './auth/RequireAuth';
 import { AppShell } from './components/layout/AppShell';
+import { ToastProvider } from './components/ui/Toast';
 import { env } from './config/env';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
@@ -23,6 +24,7 @@ export function App() {
     <BrowserRouter>
       <AuthProvider>
         <WalletProvider>
+          <ToastProvider>
           <Routes>
             <Route element={<AppShell />}>
               <Route index element={<LobbyPage />} />
@@ -49,6 +51,7 @@ export function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
+          </ToastProvider>
         </WalletProvider>
       </AuthProvider>
     </BrowserRouter>

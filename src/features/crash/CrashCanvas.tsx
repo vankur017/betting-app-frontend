@@ -31,15 +31,8 @@ export function CrashCanvas({ state }: { state: CrashVisualState }) {
     return () => game.destroy(true);
   }, [state]);
 
-  // The canvas is decorative; the page shows the same status as text.
+  // The canvas is decorative; the page shows the same state as text.
   return (
-    <div
-      ref={containerRef}
-      aria-hidden="true"
-      style={{
-        background: `radial-gradient(70% 65% at 50% 40%, rgb(62 230 160 / 0.14), transparent 70%), linear-gradient(180deg, rgb(20 29 50 / 0.82), rgb(11 17 32 / 0.9))`,
-      }}
-      className="h-64 w-full overflow-hidden panel sm:h-80 lg:h-[420px]"
-    />
+    <div ref={containerRef} aria-hidden="true" className="h-72 w-full sm:h-96 lg:h-[460px]" />
   );
 }

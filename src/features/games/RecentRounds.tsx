@@ -1,81 +1,73 @@
-import { useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { listHistory } from '../../api/games';
-import type { GameId, HistoryItem } from '../../api/types';
+import type { HistoryItem } from '../../api/types';
 import { ErrorState, LoadingState } from '../../components/ui/States';
-import { useApiQuery } from '../../hooks/useApiQuery';
+import type { QueryState } from '../../hooks/useApiQuery';
 import { cx } from '../../lib/cx';
 import { formatDateTime, humanize } from '../../lib/format';
 import { formatCoins, formatSignedCoins } from '../../lib/money';
+import { CHIP_CLASSES, netOf, netTone, TEXT_CLASSES } from './resultTone';
 
-const LIMIT = 10;
-const WIN_STATUSES = ['CASHED_OUT', 'WON'];
-const LOSS_STATUSES = ['CRASHED', 'BUSTED', 'LOST'];
+const SHOWN = 8;
 
-/** Green for a win, red for a loss. SETTLED rounds (Plinko) are judged by their net result. */
-function outcomeClass(round: HistoryItem, net: number | null): string | false {
-  if (WIN_STATUSES.includes(round.status)) return 'text-mint-300';
-  if (LOSS_STATUSES.includes(round.status)) return 'text-rose-300';
-  if (net === null || net === 0) return false;
-  return net > 0 ? 'text-mint-300' : 'text-rose-300';
-}
+type HistoryState = QueryState<HistoryItem[]> & { retry: () => void };
 
-/** The latest rounds of one game. Reloads whenever `version` changes (after each round ends). */
-export function RecentRounds({ game, version }: { game: GameId; version: number }) {
-  const load = useCallback((signal: AbortSignal) => listHistory(LIMIT, signal, game), [game]);
-  const history = useApiQuery(load);
-  const { retry } = history;
-
-  useEffect(() => {
-    if (version > 0) retry();
-  }, [version, retry]);
-
+/** The latest rounds of one game with their result, time, stake and net. */
+export function RecentRounds({ history }: { history: HistoryState }) {
   return (
-    <section
-      aria-labelledby="recent-rounds-heading"
-      className="panel p-5"
-    >
-      <h2 id="recent-rounds-heading" className="text-lg font-semibold">
-        Recent rounds
-      </h2>
+    <section aria-labelledby="recent-rounds-heading" className="panel p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 id="recent-rounds-heading" className="text-lg font-semibold">
+          Recent rounds
+        </h2>
+        <Link
+          to="/history"
+          className="text-sm font-semibold text-mint-300 transition hover:text-mint-400"
+        >
+          Full history →
+        </Link>
+      </div>
       <div className="mt-3">
         {history.status === 'loading' ? (
           <LoadingState label="Loading rounds" />
         ) : history.status === 'error' ? (
-          <ErrorState message={history.error} onRetry={retry} />
+          <ErrorState message={history.error} onRetry={history.retry} />
         ) : history.data.length === 0 ? (
-          <p className="py-6 text-sm text-night-300">No rounds yet.</p>
+          <p className="py-6 text-sm text-night-300">No rounds yet. Place a bet to get started.</p>
         ) : (
           <ul className="divide-y divide-white/5">
-            {history.data.map((round) => {
-              const net = round.virtualReturn === null ? null : round.virtualReturn - round.stake;
+            {history.data.slice(0, SHOWN).map((round) => {
+              const net = netOf(round);
+              const tone = netTone(net);
               return (
-                <li
-                  key={round.roundId}
-                  className="flex items-center justify-between gap-3 py-2.5 text-sm"
-                >
-                  <div>
-                    <p className={cx('font-medium', outcomeClass(round, net))}>
+                <li key={round.roundId} className="flex items-center gap-3 py-2.5 text-sm">
+                  {/* Servers before resultLabel existed send no label: leave the chip out. */}
+                  {round.resultLabel !== undefined ? (
+                    <span
+                      className={cx(
+                        'w-16 shrink-0 rounded-md px-1.5 py-1 text-center text-xs font-semibold tabular-nums',
+                        CHIP_CLASSES[tone],
+                      )}
+                    >
+                      {round.resultLabel ?? 'Live'}
+                    </span>
+                  ) : null}
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium text-night-100">
                       {round.outcomeSummary ?? humanize(round.status)}
                     </p>
-                    <p className="text-xs text-night-300">{formatDateTime(round.startedAt)}</p>
+                    <p className="text-xs text-night-400">
+                      {formatDateTime(round.startedAt)} · Bet {formatCoins(round.stake)}
+                    </p>
                   </div>
-                  <div className="text-right tabular-nums">
-                    <p className="font-semibold">{net === null ? '—' : formatSignedCoins(net)}</p>
-                    <p className="text-xs text-night-300">Stake {formatCoins(round.stake)}</p>
-                  </div>
+                  <p className={cx('shrink-0 font-semibold tabular-nums', TEXT_CLASSES[tone])}>
+                    {net === null ? 'In play' : formatSignedCoins(net)}
+                  </p>
                 </li>
               );
             })}
           </ul>
         )}
       </div>
-      <Link
-        to="/history"
-        className="mt-3 inline-block text-sm font-semibold text-mint-300 hover:text-mint-400"
-      >
-        Full history
-      </Link>
     </section>
   );
 }

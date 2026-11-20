@@ -5,12 +5,16 @@ import {
   diceMultiplierX100,
   flipTarget,
   formatChance,
+  formatChanceValue,
   formatRoll,
+  parseChance,
   parseTarget,
   payoutFor,
   readDiceSettings,
+  targetForWins,
   targetRange,
   winCount,
+  winsForChance,
 } from '../../lib/dice';
 import {
   createDiceVisualState,
@@ -138,5 +142,34 @@ describe('dice visual state', () => {
     expect(visual.roll).not.toBeNull();
     setBet(visual, 6000, 'under', 10000);
     expect(visual.roll).toBeNull();
+  });
+});
+
+describe('win chance input', () => {
+  it('parses percentages into basis points', () => {
+    expect(parseChance('49.5')).toEqual({ ok: true, value: 4950 });
+    expect(parseChance('98%')).toEqual({ ok: true, value: 9800 });
+    expect(parseChance('1')).toEqual({ ok: true, value: 100 });
+    expect(parseChance('abc').ok).toBe(false);
+    expect(parseChance('49.555').ok).toBe(false);
+  });
+
+  it('turns a win chance into a target for either direction', () => {
+    const wins = winsForChance(2500, SETTINGS);
+    expect(wins).toBe(2500);
+    expect(targetForWins(wins, 'under', SETTINGS)).toBe(2500);
+    expect(targetForWins(wins, 'over', SETTINGS)).toBe(7499);
+    expect(winCount(targetForWins(wins, 'over', SETTINGS), 'over', SETTINGS)).toBe(2500);
+    expect(formatChanceValue(2500, SETTINGS)).toBe('25.00');
+  });
+});
+
+describe('re-rolling mid-animation', () => {
+  it('starts the new roll from where the marker is now', () => {
+    const visual = createDiceVisualState(false);
+    startRoll(visual, round({ roll: 9000 }), 0);
+    startRoll(visual, round({ roundId: 'd2', roll: 1000 }), ROLL_MS / 2);
+    expect(visual.roll?.from).toBeGreaterThan(5000);
+    expect(visual.roll?.from).toBeLessThan(9000);
   });
 });

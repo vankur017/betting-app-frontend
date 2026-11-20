@@ -2,81 +2,69 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { cashOutCrashRound, getCrashRound, startCrashRound } from '../../api/crash';
 import { listGames } from '../../api/games';
 import { ApiError } from '../../api/http';
-import type { CrashEndedRound, CrashRound } from '../../api/types';
+import type { CrashRound } from '../../api/types';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
-import { TextField } from '../../components/ui/TextField';
+import { useToast } from '../../components/ui/toast-context';
 import { useApiQuery } from '../../hooks/useApiQuery';
 import { usePrefersReducedMotion } from '../../hooks/usePrefersReducedMotion';
 import { formatMultiplier } from '../../lib/crash';
-import { cx } from '../../lib/cx';
-import { messageOf } from '../../lib/errors';
+import { messageOf, readDetailRoundId } from '../../lib/errors';
 import { newIdempotencyKey } from '../../lib/idempotency';
-import { formatCoins, formatSignedCoins, parseCoins, toCoinInput } from '../../lib/money';
+import { estimatePayout, formatCoins, formatSignedCoins } from '../../lib/money';
 import { useWallet } from '../../wallet/wallet-context';
-import { gameBySlug } from '../games/catalog';
-import { GameHeader } from '../games/GameHeader';
+import { BetAmountField } from '../games/BetAmountField';
+import { GameLayout } from '../games/GameLayout';
+import { ResultOverlay, type RoundOutcome } from '../games/ResultOverlay';
+import { StatGrid, type Stat } from '../games/StatGrid';
+import { limitsHint } from '../games/stake';
+import { useInFlight } from '../games/useInFlight';
+import { useRecentRounds } from '../games/useRecentRounds';
+import { useStake } from '../games/useStake';
 import { CrashCanvas } from './CrashCanvas';
-import { CrashRecentRounds } from './CrashRecentRounds';
 import {
   createIdleVisualState,
   readCrashRound,
-  readRoundId,
   syncVisualState,
   timed,
   type RequestTiming,
 } from './crashVisualState';
+import { useLiveMultiplier } from './useLiveMultiplier';
 
 // How often a running round is re-read to learn whether the server has crashed it.
 const POLL_INTERVAL_MS = 250;
-const CRASH = gameBySlug('crash');
+const FORM_ID = 'crash-bet-form';
 
-function statusMessage(round: CrashRound | null): string {
-  if (!round) return 'Enter a stake and start a round.';
+type Busy = 'start' | 'cashout';
+
+function statusMessage(round: CrashRound | null, busy: Busy | null): string {
+  if (busy === 'start') return 'Placing your bet…';
+  if (busy === 'cashout') return 'Cashing out…';
+  if (!round) return 'Enter a bet and press Place bet.';
   switch (round.status) {
     case 'RUNNING':
       return 'Round running. Cash out before it crashes.';
     case 'CASHED_OUT':
       return `Cashed out at ${formatMultiplier(round.cashoutMultiplierX100 ?? 100)}. You received ${formatCoins(round.virtualReturn)} VC.`;
     case 'CRASHED':
-      return `Crashed at ${formatMultiplier(round.crashMultiplierX100)}. Your stake was lost.`;
+      return `Crashed at ${formatMultiplier(round.crashMultiplierX100)}. Your bet was lost.`;
   }
 }
 
-function RoundResult({ round }: { round: CrashEndedRound }) {
-  const won = round.status === 'CASHED_OUT';
+/** True for elements where Space already means something (typing, pressing a button). */
+function isInteractive(target: EventTarget | null): boolean {
   return (
-    <div
-      className={cx(
-        'animate-pop rounded-xl border p-4',
-        won ? 'border-mint-500/40 bg-mint-500/10' : 'border-rose-500/40 bg-rose-500/10',
-      )}
-    >
-      <p className={cx('text-lg font-bold', won ? 'text-mint-300' : 'text-rose-300')}>
-        {won
-          ? `Cashed out at ${formatMultiplier(round.cashoutMultiplierX100 ?? 100)}`
-          : `Crashed at ${formatMultiplier(round.crashMultiplierX100)}`}
-      </p>
-      <dl className="mt-3 grid grid-cols-2 gap-y-1 text-sm">
-        <dt className="text-night-300">Stake</dt>
-        <dd className="text-right tabular-nums">{formatCoins(round.stake)}</dd>
-        <dt className="text-night-300">Return</dt>
-        <dd className="text-right tabular-nums">{formatCoins(round.virtualReturn)}</dd>
-        <dt className="text-night-300">Net</dt>
-        <dd className="text-right font-semibold tabular-nums">
-          {formatSignedCoins(round.virtualReturn - round.stake)}
-        </dd>
-        <dt className="text-night-300">Crash point</dt>
-        <dd className="text-right tabular-nums">{formatMultiplier(round.crashMultiplierX100)}</dd>
-      </dl>
-    </div>
+    target instanceof HTMLElement &&
+    target.closest('input, textarea, select, button, a, [contenteditable="true"]') !== null
   );
 }
 
 export function CrashPage() {
   const { wallet, refresh: refreshWallet } = useWallet();
+  const toast = useToast();
   const games = useApiQuery(listGames);
   const limits = games.status === 'success' ? games.data.find((g) => g.id === 'crash') : undefined;
+  const stake = useStake('crash', limits, wallet?.balance);
 
   const reducedMotion = usePrefersReducedMotion();
   // One stable object shared with Phaser for the life of this page.
@@ -85,20 +73,29 @@ export function CrashPage() {
     visual.reducedMotion = reducedMotion;
   }, [visual, reducedMotion]);
 
-  const [stakeInput, setStakeInput] = useState('10');
-  const [stakeError, setStakeError] = useState<string | null>(null);
   const [round, setRound] = useState<CrashRound | null>(null);
-  const [busy, setBusy] = useState<'start' | 'cashout' | 'resume' | null>(null);
+  const { busy, run } = useInFlight<Busy>();
   const [actionError, setActionError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [connectionLost, setConnectionLost] = useState(false);
   const [historyVersion, setHistoryVersion] = useState(0);
+  const history = useRecentRounds('crash', historyVersion);
 
   // Reused only when retrying the same stake after a network failure, so a lost response
   // cannot cause a second debit.
   const pendingStart = useRef<{ key: string; stake: number } | null>(null);
   // Ignores a stale RUNNING poll that lands after the round has already been settled.
   const settledRoundId = useRef<string | null>(null);
+
+  const running = round?.status === 'RUNNING';
+  const runningStake = round?.status === 'RUNNING' ? round.stake : null;
+  const liveX100 = useLiveMultiplier(visual, running);
+
+  useEffect(() => {
+    visual.stake = runningStake;
+  }, [visual, runningStake]);
+  useEffect(() => {
+    visual.idleCaption = busy === 'start' ? 'Starting round…' : 'Place a bet to start';
+  }, [visual, busy]);
 
   const applyRound = useCallback(
     (next: CrashRound, timing?: RequestTiming) => {
@@ -143,7 +140,11 @@ export function CrashPage() {
         if (cancelled) return;
         if (error instanceof ApiError && error.status === 404) {
           resetRound();
-          setActionError('The server no longer has this round. It may have restarted.');
+          toast.show({
+            tone: 'error',
+            title: 'Round not found',
+            message: 'The server no longer has this round. It may have restarted.',
+          });
           void refreshWallet();
           return;
         }
@@ -158,234 +159,188 @@ export function CrashPage() {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [runningRoundId, applyRound, resetRound, refreshWallet]);
-
-  function stakeProblem(stake: number): string | null {
-    if (stake <= 0) return 'Enter an amount above zero.';
-    if (limits?.minStake !== undefined && stake < limits.minStake) {
-      return `Minimum stake is ${formatCoins(limits.minStake)} VC.`;
-    }
-    if (limits?.maxStake !== undefined && stake > limits.maxStake) {
-      return `Maximum stake is ${formatCoins(limits.maxStake)} VC.`;
-    }
-    if (wallet && stake > wallet.balance) return 'Not enough virtual coins for this stake.';
-    return null;
-  }
-
-  function adjustStake(change: 'half' | 'double') {
-    const parsed = parseCoins(stakeInput);
-    if (!parsed.ok) return;
-    let next = change === 'half' ? Math.floor(parsed.value / 2) : parsed.value * 2;
-    if (limits?.minStake !== undefined) next = Math.max(next, limits.minStake);
-    if (limits?.maxStake !== undefined) next = Math.min(next, limits.maxStake);
-    if (!Number.isSafeInteger(next)) return;
-    setStakeInput(toCoinInput(next));
-    setStakeError(null);
-  }
+  }, [runningRoundId, applyRound, resetRound, refreshWallet, toast]);
 
   async function resumeRound(id: string) {
-    setBusy('resume');
     try {
       const { value, timing } = await timed(() => getCrashRound(id));
       applyRound(value.round, timing);
-      setNotice('You already had a round running, so it has been resumed.');
+      toast.show({ title: 'Round resumed', message: 'You already had a Crash round running.' });
     } catch (error) {
       setActionError(messageOf(error, 'Could not load your running round.'));
     }
   }
 
-  async function handleStart(event: FormEvent<HTMLFormElement>) {
+  function handleStart(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (round?.status === 'RUNNING' || busy) return;
-    setActionError(null);
-    setNotice(null);
-    setConnectionLost(false);
+    if (running) return;
+    void run('start', async () => {
+      setActionError(null);
+      setConnectionLost(false);
+      const value = stake.validate();
+      if (value === null) return;
 
-    const parsed = parseCoins(stakeInput);
-    if (!parsed.ok) {
-      setStakeError(parsed.error);
-      return;
-    }
-    const problem = stakeProblem(parsed.value);
-    if (problem) {
-      setStakeError(problem);
-      return;
-    }
-    setStakeError(null);
+      const pending = pendingStart.current;
+      const key = pending && pending.stake === value ? pending.key : newIdempotencyKey();
+      pendingStart.current = { key, stake: value };
 
-    const pending = pendingStart.current;
-    const key = pending && pending.stake === parsed.value ? pending.key : newIdempotencyKey();
-    pendingStart.current = { key, stake: parsed.value };
+      try {
+        const { value: result, timing } = await timed(() => startCrashRound(value, key));
+        pendingStart.current = null;
+        applyRound(result.round, timing);
+        void refreshWallet();
+      } catch (error) {
+        const isNetworkError = error instanceof ApiError && error.status === 0;
+        if (!isNetworkError) pendingStart.current = null;
 
-    setBusy('start');
-    try {
-      const { value, timing } = await timed(() => startCrashRound(parsed.value, key));
-      pendingStart.current = null;
-      applyRound(value.round, timing);
-      void refreshWallet();
-    } catch (error) {
-      const isNetworkError = error instanceof ApiError && error.status === 0;
-      if (!isNetworkError) pendingStart.current = null;
-
-      if (error instanceof ApiError && error.code === 'ROUND_IN_PROGRESS') {
-        const activeId = readRoundId(error.details);
-        if (activeId) {
-          await resumeRound(activeId);
-          return;
+        if (error instanceof ApiError && error.code === 'ROUND_IN_PROGRESS') {
+          const activeId = readDetailRoundId(error.details);
+          if (activeId) {
+            await resumeRound(activeId);
+            return;
+          }
+        }
+        if (error instanceof ApiError && error.fieldErrors.stake) {
+          stake.setError(error.fieldErrors.stake);
+        } else {
+          setActionError(messageOf(error, 'Could not start the round.'));
         }
       }
-      if (error instanceof ApiError && error.fieldErrors.stake) {
-        setStakeError(error.fieldErrors.stake);
-      } else {
-        setActionError(messageOf(error, 'Could not start the round.'));
-      }
-    } finally {
-      setBusy(null);
-    }
+    });
   }
 
-  async function handleCashout() {
-    if (round?.status !== 'RUNNING' || busy) return;
-    setBusy('cashout');
-    setActionError(null);
-    try {
-      const result = await cashOutCrashRound(round.roundId);
-      applyRound(result.round);
-    } catch (error) {
-      const crashed =
-        error instanceof ApiError && error.code === 'ROUND_CRASHED'
-          ? readCrashRound(error.details)
-          : null;
-      if (crashed) {
-        applyRound(crashed);
-      } else {
-        // Retrying is safe: the server never pays a round twice.
-        setActionError(messageOf(error, 'Cash-out failed. Try again.'));
+  function handleCashout() {
+    if (round?.status !== 'RUNNING') return;
+    const id = round.roundId;
+    void run('cashout', async () => {
+      setActionError(null);
+      try {
+        const result = await cashOutCrashRound(id);
+        applyRound(result.round);
+      } catch (error) {
+        const crashed =
+          error instanceof ApiError && error.code === 'ROUND_CRASHED'
+            ? readCrashRound(error.details)
+            : null;
+        if (crashed) {
+          applyRound(crashed);
+        } else {
+          // Retrying is safe: the server never pays a round twice.
+          setActionError(messageOf(error, 'Cash-out failed. Try again.'));
+        }
       }
-    } finally {
-      setBusy(null);
-    }
+    });
   }
 
-  const running = round?.status === 'RUNNING';
-  const controlsLocked = running || busy !== null;
-  const limitsHint =
-    limits?.minStake !== undefined && limits.maxStake !== undefined
-      ? `${formatCoins(limits.minStake)} – ${formatCoins(limits.maxStake)} VC`
-      : undefined;
+  // Space places a bet or cashes out, unless focus is on something that already uses Space.
+  const hotkey = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    hotkey.current = () => {
+      if (running) handleCashout();
+      else (document.getElementById(FORM_ID) as HTMLFormElement | null)?.requestSubmit();
+    };
+  });
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.code !== 'Space' || event.repeat || event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+      if (isInteractive(event.target)) return;
+      event.preventDefault();
+      hotkey.current();
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
+  const livePayout = runningStake !== null ? estimatePayout(runningStake, liveX100) : 0;
+
+  const stats: Stat[] =
+    round?.status === 'RUNNING'
+      ? [
+          { label: 'Multiplier', value: formatMultiplier(liveX100), tone: 'accent' },
+          { label: 'Payout', value: `${formatCoins(livePayout)}` },
+          { label: 'Profit', value: formatSignedCoins(livePayout - round.stake), tone: 'win' },
+        ]
+      : [
+          { label: 'Bet', value: stake.value === null ? '—' : formatCoins(stake.value) },
+          {
+            label: 'At 2.00x',
+            value: stake.value === null ? '—' : formatCoins(estimatePayout(stake.value, 200)),
+          },
+          {
+            label: 'At 10.00x',
+            value: stake.value === null ? '—' : formatCoins(estimatePayout(stake.value, 1000)),
+          },
+        ];
+
+  const outcome: RoundOutcome | null =
+    round && round.status !== 'RUNNING'
+      ? {
+          key: round.roundId,
+          net: round.virtualReturn - round.stake,
+          label:
+            round.status === 'CASHED_OUT'
+              ? `Cashed out at ${formatMultiplier(round.cashoutMultiplierX100 ?? 100)}`
+              : `Crashed at ${formatMultiplier(round.crashMultiplierX100)}`,
+        }
+      : null;
+
+  const action = running ? (
+    <Button className="py-3.5 text-base" onClick={handleCashout} loading={busy === 'cashout'}>
+      Cash out <span className="tabular-nums">{formatCoins(livePayout)} VC</span>
+    </Button>
+  ) : (
+    <Button
+      type="submit"
+      form={FORM_ID}
+      className="py-3.5 text-base"
+      loading={busy === 'start'}
+      disabled={busy !== null}
+    >
+      {round ? 'Bet again' : 'Place bet'}
+    </Button>
+  );
 
   return (
-    <div className="flex flex-col gap-8">
-      <GameHeader game="crash" />
-
-      {games.status === 'error' ? (
-        <Alert tone="warning">Stake limits are unavailable: {games.error}</Alert>
-      ) : null}
-
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
-        <section
-          aria-labelledby="crash-controls-heading"
-          className="order-2 flex flex-col gap-5 panel p-5 lg:order-1"
-        >
-          <h2 id="crash-controls-heading" className="sr-only">
-            Round controls
-          </h2>
-          <div className="flex items-center justify-between text-sm">
-            <span className="text-night-300">Demo balance</span>
-            <span className="font-semibold tabular-nums">
-              {wallet ? `${formatCoins(wallet.balance)} ${wallet.currencyCode}` : '—'}
-            </span>
-          </div>
-
-          <form noValidate onSubmit={(event) => void handleStart(event)} className="flex flex-col gap-3">
-            <TextField
-              label="Stake (VC)"
-              name="stake"
-              inputMode="decimal"
-              autoComplete="off"
-              value={stakeInput}
-              onChange={(event) => {
-                setStakeInput(event.target.value);
-                setStakeError(null);
-              }}
-              disabled={controlsLocked}
-              error={stakeError ?? undefined}
-              hint={limitsHint}
-            />
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant="secondary"
-                aria-label="Halve stake"
-                onClick={() => adjustStake('half')}
-                disabled={controlsLocked}
-              >
-                ½
-              </Button>
-              <Button
-                variant="secondary"
-                aria-label="Double stake"
-                onClick={() => adjustStake('double')}
-                disabled={controlsLocked}
-              >
-                2×
-              </Button>
-            </div>
-            {running ? (
-              <Button
-                className="py-3 text-base"
-                onClick={() => void handleCashout()}
-                loading={busy === 'cashout'}
-              >
-                Cash out
-              </Button>
-            ) : (
-              <Button type="submit" className="py-3 text-base" loading={busy === 'start' || busy === 'resume'}>
-                Start round
-              </Button>
-            )}
-          </form>
-
-          {round?.status === 'RUNNING' ? (
-            <p className="text-sm text-night-300">
-              Server multiplier{' '}
-              <span className="font-semibold tabular-nums text-night-100">
-                {formatMultiplier(round.currentMultiplierX100)}
-              </span>
-            </p>
-          ) : null}
-          <p role="status" className="text-sm text-night-300">
-            {statusMessage(round)}
+    <GameLayout
+      game="crash"
+      formId={FORM_ID}
+      onSubmit={handleStart}
+      notice={
+        games.status === 'error' ? (
+          <Alert tone="warning">Stake limits are unavailable: {games.error}</Alert>
+        ) : null
+      }
+      controls={
+        <>
+          <BetAmountField
+            stake={stake}
+            disabled={running || busy !== null}
+            hint={limitsHint(limits)}
+          />
+          <p className="hidden text-xs text-night-400 lg:block">
+            Tip: press <kbd className="rounded bg-night-800 px-1.5 py-0.5 font-sans">Space</kbd> to
+            bet or cash out.
           </p>
-
+        </>
+      }
+      summary={<StatGrid stats={stats} />}
+      action={action}
+      status={statusMessage(round, busy)}
+      alerts={
+        <>
           {connectionLost ? <Alert tone="warning">Connection lost. Retrying…</Alert> : null}
           {actionError ? <Alert tone="error">{actionError}</Alert> : null}
-          {notice ? <Alert tone="info">{notice}</Alert> : null}
-          {round && round.status !== 'RUNNING' ? <RoundResult round={round} /> : null}
-        </section>
-
-        <div className="order-1 lg:order-2">
+        </>
+      }
+      stage={
+        <div className="stage">
           <CrashCanvas state={visual} />
+          <ResultOverlay outcome={outcome} />
         </div>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section
-          aria-labelledby="crash-rules-heading"
-          className="panel p-5"
-        >
-          <h2 id="crash-rules-heading" className="text-lg font-semibold">
-            How Crash works
-          </h2>
-          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-night-300">
-            {CRASH?.rules.map((rule) => <li key={rule}>{rule}</li>)}
-          </ol>
-        </section>
-        <CrashRecentRounds version={historyVersion} />
-      </div>
-
-      <p className="text-xs text-night-300">
-        Virtual coins only. Coins have no monetary value and cannot be redeemed.
-      </p>
-    </div>
+      }
+      history={history}
+    />
   );
 }

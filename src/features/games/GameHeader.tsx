@@ -21,10 +21,7 @@ export function GameHeader({ game }: { game: GameId }) {
         <div
           aria-hidden="true"
           className="flex h-16 w-20 shrink-0 items-center justify-center rounded-2xl border border-white/10"
-          style={{
-            background: theme.gradient,
-            boxShadow: `0 16px 36px -18px ${theme.glow}, inset 0 1px 0 rgb(255 255 255 / 0.06)`,
-          }}
+          style={{ background: theme.gradient }}
         >
           <GameArt game={game} className="h-12 w-16" />
         </div>

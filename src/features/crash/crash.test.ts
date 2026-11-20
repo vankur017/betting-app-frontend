@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { CrashEndedRound, CrashRunningRound } from '../../api/types';
-import { elapsedForMultiplier, formatMultiplier, multiplierAt } from '../../lib/crash';
+import {
+  elapsedForMultiplier,
+  formatMultiplier,
+  multiplierAt,
+  multiplierTicks,
+  timeTicks,
+} from '../../lib/crash';
 import {
   createIdleVisualState,
   readCrashRound,
@@ -79,5 +85,27 @@ describe('error detail readers', () => {
     expect(readCrashRound({ round: { roundId: 'abc' } })).toEqual({ roundId: 'abc' });
     expect(readCrashRound({ round: null })).toBeNull();
     expect(readCrashRound('nope')).toBeNull();
+  });
+});
+
+describe('graph ticks', () => {
+  it('labels round multipliers above 1.00x', () => {
+    expect(multiplierTicks(200)).toEqual([100, 125, 150, 175, 200]);
+    expect(multiplierTicks(250)).toEqual([100, 150, 200, 250]);
+    expect(multiplierTicks(1150)).toEqual([100, 500, 1000]);
+    expect(multiplierTicks(1150, 5).length).toBeLessThanOrEqual(6);
+  });
+
+  it('labels time in round steps', () => {
+    expect(timeTicks(10000)).toEqual([2000, 4000, 6000, 8000, 10000]);
+    expect(timeTicks(45000)).toEqual([10000, 20000, 30000, 40000]);
+  });
+});
+
+describe('visual state defaults', () => {
+  it('starts with no stake and a waiting caption', () => {
+    const visual = createIdleVisualState(false);
+    expect(visual.stake).toBeNull();
+    expect(visual.idleCaption).toBe('Place a bet to start');
   });
 });

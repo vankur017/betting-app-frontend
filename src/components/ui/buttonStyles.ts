@@ -7,12 +7,11 @@ const BASE =
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-linear-to-b from-mint-400 to-mint-500 text-night-950 shadow-[0_8px_24px_-10px_rgb(22_199_132/0.8),inset_0_1px_0_rgb(255_255_255/0.35)] hover:from-mint-300 hover:to-mint-400 hover:shadow-[0_10px_30px_-8px_rgb(22_199_132/0.85),inset_0_1px_0_rgb(255_255_255/0.4)]',
+    'bg-mint-500 text-night-950 shadow-[inset_0_1px_0_rgb(255_255_255/0.25),0_1px_2px_rgb(0_0_0/0.4)] hover:bg-mint-400 disabled:hover:bg-mint-500',
   secondary:
-    'border border-white/8 bg-white/5 text-night-100 shadow-[inset_0_1px_0_rgb(255_255_255/0.04)] hover:border-white/15 hover:bg-white/10',
+    'border border-white/10 bg-night-700/70 text-night-100 hover:border-white/20 hover:bg-night-700',
   ghost: 'text-night-300 hover:bg-white/5 hover:text-night-100',
-  danger:
-    'bg-linear-to-b from-rose-500 to-rose-600 text-white shadow-[0_8px_24px_-10px_rgb(244_63_94/0.8)] hover:from-rose-400 hover:to-rose-500',
+  danger: 'bg-rose-600 text-white hover:bg-rose-500',
 };
 
 /** Shared so router links can look like buttons without nesting interactive elements. */

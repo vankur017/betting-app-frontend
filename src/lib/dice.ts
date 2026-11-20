@@ -85,3 +85,31 @@ export function parseTarget(input: string): ParseTargetResult {
   const fraction = Number((match[2] ?? '').padEnd(2, '0'));
   return { ok: true, value: whole * 100 + fraction };
 }
+
+/** The target that gives `wins` winning rolls in `direction`. */
+export function targetForWins(
+  wins: number,
+  direction: DiceDirection,
+  settings: DiceSettings,
+): number {
+  return direction === 'under' ? wins : settings.rollSpan - 1 - wins;
+}
+
+/** Win chance for an input field, without the % sign: 5000 of 10000 rolls -> "50.00". */
+export function formatChanceValue(wins: number, settings: DiceSettings): string {
+  return formatRoll(Math.floor((wins * 10000) / settings.rollSpan));
+}
+
+/** Win chance as basis points of 100% (4950 = 49.50%), from "49.5", "49.50" or "49.5%". */
+export function parseChance(input: string): ParseTargetResult {
+  const match = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(input.trim().replace(/%$/, '').trim());
+  if (!match) return { ok: false, error: 'Enter a percentage with up to 2 decimals, e.g. 49.5.' };
+  const whole = Number(match[1]);
+  const fraction = Number((match[2] ?? '').padEnd(2, '0'));
+  return { ok: true, value: whole * 100 + fraction };
+}
+
+/** Winning rolls for a win chance in basis points of 100%. */
+export function winsForChance(chanceBps: number, settings: DiceSettings): number {
+  return Math.round((chanceBps * settings.rollSpan) / 10000);
+}

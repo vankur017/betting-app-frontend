@@ -75,6 +75,8 @@ export interface HistoryItem {
   /** Null while the round is running. */
   virtualReturn: number | null;
   outcomeSummary: string | null;
+  /** Short result for chips, e.g. "2.41x", "49.99" or "Bust". Null while running; absent on older servers. */
+  resultLabel?: string | null;
   startedAt: string;
   completedAt: string | null;
 }

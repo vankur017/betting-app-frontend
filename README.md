@@ -43,9 +43,24 @@ Set `VITE_API_BASE_URL` to call the API directly instead of through the dev prox
   server's roll from `diceVisualState.ts`. Bet preview maths lives in `src/lib/dice.ts`.
 - `src/features/mines/` — Mines screen. The board is a grid of real buttons, not a canvas, so
   it works with a keyboard and screen readers. Tile states live in `src/lib/mines.ts`.
-- `src/features/games/` — shared pieces: game catalog, `RecentRounds`, stake checks and the
-  stake field. The placeholder page is unused while every game has its own page.
+- `src/features/games/` — shared game screen pieces (see below), catalog, stake checks.
 - `src/features/` — lobby, wallet, history, help.
+
+## Shared game screen
+
+Every game page is a `GameLayout`: title, the game area with the latest results above it, the bet
+panel, recent rounds and rules. On screens below `lg` the game area comes first and the main
+action sits in a fixed bottom bar (`body.has-action-bar` keeps the footer clear of it).
+
+- `BetAmountField` + `useStake`: amount in VC, ½ / 2×, quick amounts (1, 10, 50, 100), Max.
+  Remembers the last stake per game. Limits and balance are checked on submit; the server
+  re-checks everything.
+- `useInFlight`: one request at a time per page, with a ref guard so double clicks never send twice.
+- `useRevealQueue`: holds results the server already settled until their animation ends
+  (Plinko balls, Dice rolls), so balance and history update when the player sees the result.
+- `StatGrid`, `ResultOverlay`, `RecentResultsStrip`, `RecentRounds`, toasts (`useToast`) and
+  `AnimatedCoins` for balance changes. All motion respects `prefers-reduced-motion`.
+- Payout figures before settlement ("Cash out 15.20 VC", "Max win") are display-only estimates.
 
 ## Crash and the server
 
@@ -56,6 +71,8 @@ Set `VITE_API_BASE_URL` to call the API directly instead of through the dev prox
 - Start sends an `Idempotency-Key`. After a network error, retrying the same stake reuses
   the key, so the stake cannot be taken twice.
 - If a round is already running (for example after a page reload), Start resumes it.
+- Space places a bet or cashes out (ignored while typing or when a button has focus). The graph
+  shakes briefly on a crash unless reduced motion is on.
 
 ## Plinko and the server
 
@@ -68,7 +85,8 @@ Set `VITE_API_BASE_URL` to call the API directly instead of through the dev prox
   bounce or the bucket lift.
 - Drop sends an `Idempotency-Key`. After a network error, retrying the same stake and board
   reuses the key, so the stake cannot be taken twice.
-- One ball at a time: stake, rows and risk are locked while a ball is falling.
+- Up to five balls can be in the air; each is its own settled bet. Rows and risk lock until
+  every ball has landed, because they change the board.
 
 ## Mines and the server
 

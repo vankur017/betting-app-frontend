@@ -1,17 +1,23 @@
 import Phaser from 'phaser';
 import { formatRoll } from '../../lib/dice';
-import { markerValue, rollProgress, type DiceVisualState } from './diceVisualState';
+import {
+  markerValue,
+  rollProgress,
+  TRACK_PADDING,
+  TRACK_Y_RATIO,
+  type DiceVisualState,
+} from './diceVisualState';
 
 const COLORS = {
   win: 0x16c784,
   lose: 0xf43f5e,
-  handle: 0xe6eaf2,
+  handle: 0xe8ecf4,
   marker: 0xffffff,
-  outline: 0x070b14,
+  outline: 0x05080f,
 };
-const TEXT = { idle: '#a9b4cc', rolling: '#e6eaf2', won: '#7ff0c0', lost: '#fb7185' };
-const FONT = 'ui-sans-serif, system-ui, "Segoe UI", Roboto, sans-serif';
-const PADDING = 28;
+const TEXT = { idle: '#a3aec6', rolling: '#ffffff', won: '#8af5c8', lost: '#fb7185' };
+const DISPLAY_FONT = '"Space Grotesk", Inter, ui-sans-serif, system-ui, sans-serif';
+const FONT = 'Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif';
 const TICKS = [0, 25, 50, 75, 100];
 
 /** Draws the 0-100 track, the winning range and the server's roll. It never decides anything. */
@@ -34,14 +40,14 @@ export class DiceScene extends Phaser.Scene {
     const resolution = Math.min(window.devicePixelRatio || 1, 2);
     this.graphics = this.add.graphics();
     this.valueLabel = this.add
-      .text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold', color: TEXT.idle, resolution })
+      .text(0, 0, '', { fontFamily: DISPLAY_FONT, fontStyle: 'bold', color: TEXT.idle, resolution })
       .setOrigin(0.5);
     this.captionLabel = this.add
       .text(0, 0, '', { fontFamily: FONT, color: TEXT.idle, resolution })
       .setOrigin(0.5);
     // Above the track and the marker tag.
     this.markerLabel = this.add
-      .text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold', color: '#070b14', resolution })
+      .text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold', color: '#05080f', resolution })
       .setOrigin(0.5)
       .setDepth(2);
     this.tickLabels = TICKS.map((tick) =>
@@ -61,23 +67,23 @@ export class DiceScene extends Phaser.Scene {
     const state = this.diceState;
     const width = this.scale.width;
     const height = this.scale.height;
-    const left = PADDING;
-    const right = width - PADDING;
+    const left = TRACK_PADDING;
+    const right = width - TRACK_PADDING;
     const trackWidth = Math.max(1, right - left);
-    const trackHeight = Math.round(Math.max(10, Math.min(18, height * 0.05)));
-    const trackY = height * 0.7;
+    const trackHeight = Math.round(Math.max(12, Math.min(20, height * 0.06)));
+    const trackY = height * TRACK_Y_RATIO;
     const trackTop = trackY - trackHeight / 2;
     const toX = (x100: number) => left + (x100 / state.rollSpan) * trackWidth;
 
     // Font size re-renders the text textures, so only change it when the canvas resizes.
-    const size = Math.round(Math.max(28, Math.min(72, Math.min(width, height) * 0.22)));
-    const smallSize = Math.max(12, Math.round(size * 0.24));
+    const size = Math.round(Math.max(36, Math.min(84, Math.min(width, height) * 0.24)));
+    const smallSize = Math.max(12, Math.round(size * 0.22));
     if (size !== this.fontSize) {
       this.fontSize = size;
       valueLabel.setFontSize(size);
       captionLabel.setFontSize(smallSize);
-      markerLabel.setFontSize(smallSize);
-      for (const label of this.tickLabels) label.setFontSize(Math.max(11, Math.round(size * 0.2)));
+      markerLabel.setFontSize(Math.max(12, Math.round(size * 0.2)));
+      for (const label of this.tickLabels) label.setFontSize(Math.max(11, Math.round(size * 0.17)));
     }
 
     const roll = state.roll;
@@ -107,14 +113,14 @@ export class DiceScene extends Phaser.Scene {
       br: r,
     });
 
-    // Target handle.
+    // Target handle: drag it (the page lays an input over the track).
     graphics.fillStyle(COLORS.outline, 1);
-    graphics.fillRoundedRect(targetX - 4.5, trackY - trackHeight - 1.5, 9, trackHeight * 2 + 3, 4);
+    graphics.fillRoundedRect(targetX - 6, trackY - trackHeight - 2, 12, trackHeight * 2 + 4, 5);
     graphics.fillStyle(COLORS.handle, 1);
-    graphics.fillRoundedRect(targetX - 3, trackY - trackHeight, 6, trackHeight * 2, 3);
+    graphics.fillRoundedRect(targetX - 4, trackY - trackHeight, 8, trackHeight * 2, 4);
 
     this.tickLabels.forEach((label, index) => {
-      label.setPosition(toX((TICKS[index] * state.rollSpan) / 100), trackY + trackHeight + 8);
+      label.setPosition(toX((TICKS[index] * state.rollSpan) / 100), trackY + trackHeight + 10);
     });
 
     // Roll marker: a tag above the track pointing at the roll. White while moving, then the
@@ -123,10 +129,10 @@ export class DiceScene extends Phaser.Scene {
       const value = markerValue(roll, progress);
       const x = toX(value);
       const fill = !landed ? COLORS.marker : roll.won ? COLORS.win : COLORS.lose;
-      const tagWidth = smallSize * 4.4;
-      const tagHeight = smallSize * 1.9;
+      const tagWidth = Math.max(56, smallSize * 4.4);
+      const tagHeight = Math.max(26, smallSize * 1.9);
       const tagX = Math.min(right - tagWidth / 2, Math.max(left + tagWidth / 2, x));
-      const tipY = trackTop - 2;
+      const tipY = trackTop - 6;
       const tagY = tipY - 8 - tagHeight;
 
       graphics.fillStyle(COLORS.outline, 1);
@@ -152,7 +158,7 @@ export class DiceScene extends Phaser.Scene {
     if (!roll) {
       text = formatRoll(state.target);
       color = TEXT.idle;
-      caption = `Roll ${side} to win`;
+      caption = `Roll ${side} to win · drag the bar to change`;
     } else if (!landed) {
       text = formatRoll(Math.round(markerValue(roll, progress)));
       color = TEXT.rolling;
@@ -160,13 +166,13 @@ export class DiceScene extends Phaser.Scene {
     } else {
       text = formatRoll(roll.to);
       color = roll.won ? TEXT.won : TEXT.lost;
-      caption = roll.won ? `Win · rolled ${side}` : `Miss · needed ${side}`;
+      caption = roll.won ? `Win · needed ${side}` : `Miss · needed ${side}`;
     }
     if (color !== this.valueColor) {
       this.valueColor = color;
       valueLabel.setColor(color);
     }
-    valueLabel.setText(text).setPosition(width / 2, height * 0.3);
-    captionLabel.setText(caption).setPosition(width / 2, height * 0.3 + size * 0.72);
+    valueLabel.setText(text).setPosition(width / 2, height * 0.31);
+    captionLabel.setText(caption).setPosition(width / 2, height * 0.31 + size * 0.62);
   }
 }

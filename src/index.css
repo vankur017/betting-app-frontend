@@ -1,8 +1,8 @@
 @import 'tailwindcss';
 
 /*
- * Original palette: deep navy surfaces, a mint accent, and one accent colour per game.
- * Surfaces are layered glass panels over a softly lit background.
+ * Original palette: deep charcoal/navy surfaces with a mint-green action colour.
+ * Surfaces are flat and quiet so the game area and its state stand out.
  */
 @theme {
   --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
@@ -23,14 +23,18 @@
   --color-mint-500: #16c784;
   --color-mint-600: #0fa36b;
 
-  --animate-rise: rise 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
-  --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3) both;
+  --animate-rise: rise 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-pop: pop 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
   --animate-float: float 6s ease-in-out infinite;
+  --animate-flip: flip 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shake: shake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+  --animate-fade: fade 0.35s ease-out both;
+  --animate-toast: toast 0.25s cubic-bezier(0.2, 0.8, 0.2, 1) both;
 
   @keyframes rise {
     from {
       opacity: 0;
-      transform: translateY(10px);
+      transform: translateY(8px);
     }
     to {
       opacity: 1;
@@ -56,27 +60,79 @@
       transform: translateY(-8px);
     }
   }
+  @keyframes flip {
+    from {
+      opacity: 0.4;
+      transform: perspective(400px) rotateY(80deg) scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  @keyframes shake {
+    0%,
+    100% {
+      transform: none;
+    }
+    20% {
+      transform: translateX(-5px) rotate(-2deg);
+    }
+    40% {
+      transform: translateX(5px) rotate(2deg);
+    }
+    60% {
+      transform: translateX(-3px);
+    }
+    80% {
+      transform: translateX(3px);
+    }
+  }
+  @keyframes fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  @keyframes toast {
+    from {
+      opacity: 0;
+      transform: translateY(-8px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 }
 
-/* Glass panel: the main surface for cards and sections. */
+/* Main surface for cards and sections. */
 @utility panel {
-  border-radius: 1.25rem;
-  border: 1px solid rgb(255 255 255 / 0.07);
-  background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.035), rgb(255 255 255 / 0) 40%),
-    linear-gradient(180deg, rgb(20 29 50 / 0.82), rgb(11 17 32 / 0.88));
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background-color: var(--color-night-900);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 20px 40px -24px rgb(0 0 0 / 0.75);
-  backdrop-filter: blur(10px);
+    inset 0 1px 0 rgb(255 255 255 / 0.03),
+    0 12px 32px -20px rgb(0 0 0 / 0.8);
 }
 
-/* Recessed well inside a panel: stats, results, canvases. */
+/* Recessed well inside a panel: stats, readouts. */
 @utility panel-inset {
-  border-radius: 0.9rem;
+  border-radius: 0.75rem;
   border: 1px solid rgb(255 255 255 / 0.05);
-  background: rgb(5 8 15 / 0.55);
-  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.45);
+  background-color: rgb(5 8 15 / 0.6);
+}
+
+/* The game area: slightly lighter at the top so the board reads as the focus. */
+@utility stage {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgb(255 255 255 / 0.06);
+  background-color: #0a101d;
+  background-image: linear-gradient(180deg, #111a2e 0%, #0a101d 55%, #080c17 100%);
 }
 
 /* Small label above a value. */
@@ -89,7 +145,7 @@
 }
 
 @utility text-gradient {
-  background: linear-gradient(100deg, #ffffff 10%, var(--color-mint-300) 55%, #7dd3fc 95%);
+  background: linear-gradient(100deg, #ffffff 10%, var(--color-mint-300) 60%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -101,33 +157,15 @@
   }
 
   body {
-    position: relative;
-    isolation: isolate;
     min-height: 100dvh;
     background-color: var(--color-night-950);
-    background-image:
-      radial-gradient(60rem 36rem at 8% -12%, rgb(22 199 132 / 0.13), transparent 60%),
-      radial-gradient(52rem 34rem at 100% -6%, rgb(99 102 241 / 0.13), transparent 62%),
-      radial-gradient(46rem 30rem at 50% 115%, rgb(14 165 233 / 0.07), transparent 60%);
-    background-attachment: fixed;
+    background-image: radial-gradient(70rem 30rem at 50% -14rem, rgb(22 199 132 / 0.08), transparent 70%);
+    background-repeat: no-repeat;
     color: var(--color-night-100);
     font-family: var(--font-sans);
     font-feature-settings: 'cv11', 'ss01';
     -webkit-font-smoothing: antialiased;
-  }
-
-  /* Faint grid that fades out towards the bottom of the screen. */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image:
-      linear-gradient(rgb(255 255 255 / 0.028) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(255 255 255 / 0.028) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%);
+    overflow-x: hidden;
   }
 
   h1,
@@ -149,6 +187,51 @@
   input[type='range'] {
     accent-color: var(--color-mint-500);
   }
+}
+
+/* Game pages show a fixed action bar on small screens; keep the footer clear of it. */
+@media (max-width: 1023.98px) {
+  body.has-action-bar {
+    padding-bottom: 7.5rem;
+  }
+}
+
+/* Invisible range input laid over the Dice track, so the track itself can be dragged. */
+.dice-range {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.dice-range::-webkit-slider-runnable-track {
+  height: 100%;
+  background: transparent;
+}
+.dice-range::-moz-range-track {
+  height: 100%;
+  background: transparent;
+}
+.dice-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 18px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+}
+.dice-range::-moz-range-thumb {
+  width: 18px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+}
+.dice-range:focus-visible {
+  outline: 2px solid var(--color-mint-400);
+  outline-offset: 2px;
+  border-radius: 9999px;
+}
+.dice-range:disabled {
+  cursor: not-allowed;
 }
 
 @media (prefers-reduced-motion: reduce) {

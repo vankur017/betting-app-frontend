@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { formatCoins } from '../lib/money';
 import { useWallet } from '../wallet/wallet-context';
+import { formatCoins } from '../lib/money';
+import { AnimatedCoins } from './AnimatedCoins';
 import { CoinIcon } from './icons';
 
 export function BalanceBadge() {
@@ -9,7 +10,10 @@ export function BalanceBadge() {
   if (!wallet) {
     if (status === 'error') {
       return (
-        <span className="rounded-full bg-night-800 px-3 py-1.5 text-xs text-night-300" title={error ?? undefined}>
+        <span
+          className="rounded-full bg-night-800 px-3 py-1.5 text-xs text-night-300"
+          title={error ?? undefined}
+        >
           Balance unavailable
         </span>
       );
@@ -23,17 +27,16 @@ export function BalanceBadge() {
     );
   }
 
-  const amount = formatCoins(wallet.balance);
   return (
     <Link
       to="/wallet"
-      className="group flex items-center gap-2 rounded-full border border-mint-400/20 bg-linear-to-b from-mint-500/15 to-mint-500/5 py-1 pl-1.5 pr-3.5 text-sm font-semibold shadow-[0_8px_24px_-14px_rgb(22_199_132/0.8)] transition hover:border-mint-400/50"
-      aria-label={`Virtual coin balance: ${amount} ${wallet.currencyCode}. Open wallet.`}
+      className="flex items-center gap-2 rounded-full border border-white/10 bg-night-900 py-1 pl-1.5 pr-3.5 text-sm font-semibold transition hover:border-mint-400/50"
+      aria-label={`Virtual coin balance: ${formatCoins(wallet.balance)} ${wallet.currencyCode}. Open wallet.`}
     >
       <span className="flex h-6 w-6 items-center justify-center rounded-full bg-night-950/60">
         <CoinIcon />
       </span>
-      <span className="tabular-nums text-night-100">{amount}</span>
+      <AnimatedCoins value={wallet.balance} className="text-night-100" />
       <span className="text-xs font-semibold text-mint-300">{wallet.currencyCode}</span>
     </Link>
   );

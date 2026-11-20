@@ -17,6 +17,10 @@ export interface CrashVisualState {
   /** Revealed only after the round ends. */
   crashX100: number | null;
   cashoutX100: number | null;
+  /** Stake of the running round, for the on-graph payout estimate. Null when no round runs. */
+  stake: number | null;
+  /** Caption under 1.00x while waiting, e.g. "Place a bet to start". */
+  idleCaption: string;
   reducedMotion: boolean;
 }
 
@@ -37,6 +41,8 @@ export function createIdleVisualState(reducedMotion: boolean): CrashVisualState 
     polledElapsedMs: 0,
     crashX100: null,
     cashoutX100: null,
+    stake: null,
+    idleCaption: 'Place a bet to start',
     reducedMotion,
   };
 }

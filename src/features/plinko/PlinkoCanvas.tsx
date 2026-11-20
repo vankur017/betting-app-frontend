@@ -36,10 +36,7 @@ export function PlinkoCanvas({ state }: { state: PlinkoVisualState }) {
     <div
       ref={containerRef}
       aria-hidden="true"
-      style={{
-        background: `radial-gradient(70% 65% at 50% 40%, rgb(167 139 250 / 0.14), transparent 70%), linear-gradient(180deg, rgb(20 29 50 / 0.82), rgb(11 17 32 / 0.9))`,
-      }}
-      className="h-80 w-full overflow-hidden panel sm:h-[420px] lg:h-[480px]"
+      className="h-[340px] w-full sm:h-[440px] lg:h-[520px]"
     />
   );
 }
