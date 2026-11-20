@@ -197,7 +197,9 @@ type AudioContextCtor = typeof AudioContext;
 
 function audioContextCtor(): AudioContextCtor | null {
   if (typeof window === 'undefined') return null;
-  const w = window as Window & { webkitAudioContext?: AudioContextCtor };
+  // `typeof window` (Window & typeof globalThis) includes the AudioContext global;
+  // plain `Window` does not, which fails `tsc -b` on Vercel.
+  const w = window as typeof window & { webkitAudioContext?: AudioContextCtor };
   return w.AudioContext ?? w.webkitAudioContext ?? null;
 }
 
