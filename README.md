@@ -16,6 +16,21 @@ npm run typecheck
 
 Set `VITE_API_BASE_URL` to call the API directly instead of through the dev proxy.
 
+## Deployed on Vercel, backend on your computer
+
+1. `.env.production` (committed) sets `VITE_API_BASE_URL=http://localhost:5000` for every
+   `vite build`, including Vercel's. A value set in Vercel (project sidebar → Environment
+   Variables) overrides it. `npm run dev` ignores this file and keeps using the proxy.
+2. `../backend/.env`: add the Vercel address to `CORS_ORIGIN`, e.g.
+   `CORS_ORIGIN=http://localhost:5173,https://my-app.vercel.app`, then restart the backend.
+3. Open the Vercel site in Chrome or Edge and allow local network access when asked.
+
+- `vercel.json` sends every path to `index.html`, so links such as `/games/dice` work on refresh.
+- Requests to localhost carry `targetAddressSpace: 'loopback'` so Chrome lets the https page call
+  `http://localhost`. Safari blocks this; use Chrome, Edge or Firefox.
+- Only works on the computer running the backend. Anyone else who opens the site reaches their
+  own `localhost`, where nothing is running.
+
 ## Structure
 
 - `src/api/` — the only place that calls the backend. `http.ts` unwraps `{ success, data }`

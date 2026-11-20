@@ -12,6 +12,8 @@ coverage
 .env
 .env.*
 !.env.example
+# Production API address (not secret), committed so Vercel builds pick it up.
+!.env.production
 *.local
 
 # Logs

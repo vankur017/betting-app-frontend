@@ -2,6 +2,30 @@ import { env } from '../config/env';
 
 const IDEMPOTENCY_HEADER_NAME = 'Idempotency-Key';
 
+/** True when the API runs on this computer (localhost, *.localhost, 127.x.x.x or [::1]). */
+export function isLoopbackUrl(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname.toLowerCase();
+  } catch {
+    return false;
+  }
+  return (
+    hostname === 'localhost' ||
+    hostname.endsWith('.localhost') ||
+    /^127(\.\d{1,3}){3}$/.test(hostname) ||
+    hostname === '[::1]'
+  );
+}
+
+// A deployed (https) page calling an http API on this computer, e.g. the Vercel site with the
+// backend on localhost. Chrome asks the player for local network access before allowing it.
+const LOOPBACK_API = isLoopbackUrl(env.apiBaseUrl);
+const CALLS_LOCAL_FROM_SITE =
+  LOOPBACK_API &&
+  typeof window !== 'undefined' &&
+  !isLoopbackUrl(window.location.href);
+
 /** Raised for every failed API call. `status` is 0 when the server could not be reached. */
 export class ApiError extends Error {
   readonly status: number;
@@ -102,16 +126,22 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
 
   let response: Response;
   try {
-    response = await fetch(buildUrl(path, options.query), {
+    const init: RequestInit & { targetAddressSpace?: 'loopback' } = {
       method,
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
       signal: options.signal,
-    });
+    };
+    // Tells Chrome before the request is sent that it goes to this computer, so the https page
+    // is allowed to call http://localhost once the player grants access. Other browsers ignore it.
+    if (LOOPBACK_API) init.targetAddressSpace = 'loopback';
+    response = await fetch(buildUrl(path, options.query), init);
   } catch (error) {
     if (options.signal?.aborted) throw error;
     throw new ApiError(
-      'Cannot reach the server. Check that the backend is running and try again.',
+      CALLS_LOCAL_FROM_SITE
+        ? 'Cannot reach the game server on this computer. Check that the backend is running, and that this site is allowed local network access (site settings, next to the address bar).'
+        : 'Cannot reach the server. Check that the backend is running and try again.',
       0,
       'NETWORK_ERROR',
     );
