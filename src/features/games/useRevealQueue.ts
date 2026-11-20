@@ -8,10 +8,10 @@ interface Entry<T> {
 /**
  * Holds results the server has already settled until their animation finishes (a Plinko ball
  * landing, a Dice marker stopping), then hands each one to `onReveal`. Several can be pending at
- * once. `flush` reveals everything now. Anything still pending on unmount is revealed too, so the
- * wallet is always refreshed.
+ * once. `flush` reveals everything now. Anything still pending on unmount is revealed too (with
+ * `live` false), so the wallet is always refreshed.
  */
-export function useRevealQueue<T>(onReveal: (item: T) => void) {
+export function useRevealQueue<T>(onReveal: (item: T, live: boolean) => void) {
   const entries = useRef(new Map<number, Entry<T>>());
   const nextId = useRef(1);
   const [pending, setPending] = useState(0);
@@ -27,7 +27,7 @@ export function useRevealQueue<T>(onReveal: (item: T) => void) {
     window.clearTimeout(entry.timer);
     entries.current.delete(id);
     setPending(entries.current.size);
-    onRevealRef.current(entry.item);
+    onRevealRef.current(entry.item, true);
   }, []);
 
   const schedule = useCallback(
@@ -49,7 +49,8 @@ export function useRevealQueue<T>(onReveal: (item: T) => void) {
     return () => {
       for (const { timer, item } of map.values()) {
         window.clearTimeout(timer);
-        onRevealRef.current(item);
+        // Not live: the page is closing, so skip sounds and animations.
+        onRevealRef.current(item, false);
       }
       map.clear();
     };

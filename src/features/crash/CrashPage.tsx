@@ -12,6 +12,7 @@ import { formatMultiplier } from '../../lib/crash';
 import { messageOf, readDetailRoundId } from '../../lib/errors';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { estimatePayout, formatCoins, formatSignedCoins } from '../../lib/money';
+import { outcomeSound, sound } from '../../lib/sound';
 import { useWallet } from '../../wallet/wallet-context';
 import { BetAmountField } from '../games/BetAmountField';
 import { GameLayout } from '../games/GameLayout';
@@ -93,6 +94,38 @@ export function CrashPage() {
   useEffect(() => {
     visual.stake = runningStake;
   }, [visual, runningStake]);
+
+  // Sound: a quiet rising tone while the round runs, a chime at each whole multiplier, then the
+  // crash or the cash-out. All of it follows what the server reported.
+  useEffect(() => {
+    if (!running) return;
+    sound.startRise();
+    return () => sound.stopRise();
+  }, [running]);
+  const lastMilestone = useRef(1);
+  useEffect(() => {
+    if (!running) {
+      lastMilestone.current = 1;
+      return;
+    }
+    sound.setRise(liveX100);
+    const whole = Math.floor(liveX100 / 100);
+    if (whole > lastMilestone.current) {
+      lastMilestone.current = whole;
+      sound.play('milestone', { step: whole });
+    }
+  }, [running, liveX100]);
+  const soundedRoundId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!round || round.status === 'RUNNING' || soundedRoundId.current === round.roundId) return;
+    soundedRoundId.current = round.roundId;
+    if (round.status === 'CRASHED') {
+      sound.play('crash');
+      return;
+    }
+    sound.play('cashout');
+    if (outcomeSound(round.stake, round.virtualReturn) === 'bigWin') sound.play('bigWin');
+  }, [round]);
   useEffect(() => {
     visual.idleCaption = busy === 'start' ? 'Starting round…' : 'Place a bet to start';
   }, [visual, busy]);
@@ -187,6 +220,7 @@ export function CrashPage() {
       try {
         const { value: result, timing } = await timed(() => startCrashRound(value, key));
         pendingStart.current = null;
+        sound.play('bet');
         applyRound(result.round, timing);
         void refreshWallet();
       } catch (error) {

@@ -8,7 +8,7 @@ import {
   revealMinesTile,
   startMines,
 } from '../../api/mines';
-import type { MinesRound } from '../../api/types';
+import type { MinesRevealResult, MinesRound } from '../../api/types';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { useToast } from '../../components/ui/toast-context';
@@ -19,6 +19,7 @@ import { messageOf, readDetailRound, readDetailRoundId } from '../../lib/errors'
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { DEFAULT_MINES_SETTINGS, readMinesSettings } from '../../lib/mines';
 import { formatCoins, formatSignedCoins } from '../../lib/money';
+import { outcomeSound, sound } from '../../lib/sound';
 import { useWallet } from '../../wallet/wallet-context';
 import { BetAmountField } from '../games/BetAmountField';
 import { GameLayout } from '../games/GameLayout';
@@ -50,6 +51,10 @@ interface MineCountPickerProps {
 /** Stepper plus common presets. More mines: fewer safe tiles, bigger multipliers. */
 function MineCountPicker({ value, min, max, disabled, onChange }: MineCountPickerProps) {
   const presets = MINE_PRESETS.filter((count) => count >= min && count <= max);
+  const pick = (next: number) => {
+    if (next !== value) sound.play('click');
+    onChange(next);
+  };
   return (
     <fieldset className="flex flex-col disabled:opacity-60" disabled={disabled}>
       <legend className="eyebrow mb-2">Mines</legend>
@@ -58,7 +63,7 @@ function MineCountPicker({ value, min, max, disabled, onChange }: MineCountPicke
           type="button"
           className={stepClass}
           aria-label="Fewer mines"
-          onClick={() => onChange(Math.max(min, value - 1))}
+          onClick={() => pick(Math.max(min, value - 1))}
           disabled={value <= min}
         >
           −
@@ -73,7 +78,7 @@ function MineCountPicker({ value, min, max, disabled, onChange }: MineCountPicke
           type="button"
           className={stepClass}
           aria-label="More mines"
-          onClick={() => onChange(Math.min(max, value + 1))}
+          onClick={() => pick(Math.min(max, value + 1))}
           disabled={value >= max}
         >
           +
@@ -85,7 +90,7 @@ function MineCountPicker({ value, min, max, disabled, onChange }: MineCountPicke
             key={count}
             type="button"
             aria-pressed={count === value}
-            onClick={() => onChange(count)}
+            onClick={() => pick(count)}
             className={cx(
               'rounded-lg py-2 text-xs font-semibold transition',
               count === value
@@ -99,6 +104,23 @@ function MineCountPicker({ value, min, max, disabled, onChange }: MineCountPicke
       </div>
     </fieldset>
   );
+}
+
+/** A rising chime per safe tile, a blast for a mine, coins when the board is cleared. */
+function playRevealSound({ round, alreadyRevealed }: MinesRevealResult): void {
+  if (alreadyRevealed) return;
+  if (round.status === 'BUSTED') {
+    sound.play('bomb');
+    return;
+  }
+  sound.play('gem', { step: round.safeReveals });
+  if (round.status === 'CASHED_OUT') playCashoutSound(round);
+}
+
+function playCashoutSound(round: MinesRound): void {
+  if (round.status !== 'CASHED_OUT') return;
+  sound.play('cashout');
+  if (outcomeSound(round.stake, round.virtualReturn) === 'bigWin') sound.play('bigWin');
 }
 
 function statusMessage(round: MinesRound | null, busy: Busy | null): string {
@@ -200,6 +222,7 @@ export function MinesPage() {
       try {
         const result = await startMines(value, mineCount, key);
         pendingStart.current = null;
+        sound.play('bet');
         setRound(result.round);
         void refreshWallet();
       } catch (error) {
@@ -230,6 +253,7 @@ export function MinesPage() {
       setActionError(null);
       try {
         const result = await revealMinesTile(id, tile);
+        playRevealSound(result);
         setRound(result.round);
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) {
@@ -265,6 +289,7 @@ export function MinesPage() {
       setActionError(null);
       try {
         const result = await cashOutMines(id);
+        if (!result.alreadySettled) playCashoutSound(result.round);
         setRound(result.round);
       } catch (error) {
         if (error instanceof ApiError && error.status === 404) {

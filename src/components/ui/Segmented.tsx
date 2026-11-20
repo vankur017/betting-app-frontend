@@ -1,4 +1,5 @@
 import { cx } from '../../lib/cx';
+import { sound } from '../../lib/sound';
 
 interface SegmentedProps<T extends string | number> {
   label: string;
@@ -32,7 +33,10 @@ export function Segmented<T extends string | number>({
               key={option}
               type="button"
               aria-pressed={active}
-              onClick={() => onChange(option)}
+              onClick={() => {
+                if (!active) sound.play('click');
+                onChange(option);
+              }}
               className={cx(
                 'rounded-lg px-3 py-2 text-sm font-semibold transition disabled:cursor-not-allowed',
                 active

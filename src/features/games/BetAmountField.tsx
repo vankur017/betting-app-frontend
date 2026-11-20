@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { CoinIcon } from '../../components/icons';
 import { env } from '../../config/env';
 import { cx } from '../../lib/cx';
+import { sound } from '../../lib/sound';
 import type { StakeController } from './useStake';
 
 const QUICK_AMOUNTS_VC = [1, 10, 50, 100];
@@ -24,6 +25,10 @@ export function BetAmountField({ stake, disabled, hint }: BetAmountFieldProps) {
   const hintId = `${id}-hint`;
   const errorId = `${id}-error`;
   const unit = 10 ** env.coinDecimals;
+  const tap = (action: () => void) => () => {
+    sound.play('click');
+    action();
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -64,7 +69,7 @@ export function BetAmountField({ stake, disabled, hint }: BetAmountFieldProps) {
           <button
             type="button"
             className={adjustClass}
-            onClick={() => stake.adjust('half')}
+            onClick={tap(() => stake.adjust('half'))}
             disabled={disabled}
             aria-label="Halve bet"
           >
@@ -73,7 +78,7 @@ export function BetAmountField({ stake, disabled, hint }: BetAmountFieldProps) {
           <button
             type="button"
             className={cx(adjustClass, 'rounded-r-xl border-l border-white/10')}
-            onClick={() => stake.adjust('double')}
+            onClick={tap(() => stake.adjust('double'))}
             disabled={disabled}
             aria-label="Double bet"
           >
@@ -87,14 +92,14 @@ export function BetAmountField({ stake, disabled, hint }: BetAmountFieldProps) {
             key={amount}
             type="button"
             className={chipClass}
-            onClick={() => stake.setAmount(amount * unit)}
+            onClick={tap(() => stake.setAmount(amount * unit))}
             disabled={disabled}
             aria-label={`Bet ${amount} VC`}
           >
             {amount}
           </button>
         ))}
-        <button type="button" className={chipClass} onClick={stake.setMax} disabled={disabled}>
+        <button type="button" className={chipClass} onClick={tap(stake.setMax)} disabled={disabled}>
           Max
         </button>
       </div>

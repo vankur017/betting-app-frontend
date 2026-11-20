@@ -5,6 +5,7 @@ import { env } from '../../config/env';
 import { cx } from '../../lib/cx';
 import { messageOf } from '../../lib/errors';
 import { BalanceBadge } from '../BalanceBadge';
+import { SoundToggle } from '../SoundToggle';
 import { BrandMark, MenuIcon } from '../icons';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/Button';
@@ -104,6 +105,7 @@ export function Header() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <SoundToggle />
           {authenticated ? <BalanceBadge /> : null}
           <div className="hidden items-center gap-1 md:flex">{accountActions}</div>
           <button

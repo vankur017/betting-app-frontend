@@ -62,6 +62,18 @@ action sits in a fixed bottom bar (`body.has-action-bar` keeps the footer clear 
   `AnimatedCoins` for balance changes. All motion respects `prefers-reduced-motion`.
 - Payout figures before settlement ("Cash out 15.20 VC", "Max win") are display-only estimates.
 
+## Sound
+
+`src/lib/sound.ts` synthesises every sound with the Web Audio API: no audio files, no
+dependencies, nothing copied. Sounds only follow results the server already returned.
+
+- Audio starts on the first click or key press (browsers block it before then) and pauses
+  while the tab is hidden. If Web Audio is missing, every call does nothing.
+- The speaker button in the header mutes or unmutes; the choice is saved in this browser.
+- Crash: bet, a quiet tone that rises with the multiplier, a chime at each whole multiplier, cash-out coins or a crash. Plinko: drop, a tick per peg, a landing thud, a chime above 1x.
+  Mines: a chime one semitone higher per safe tile, a blast for a mine, coins on cash-out.
+  Dice: a rattle that slows with the marker, then a win or miss. 5x or more plays a big-win fanfare.
+
 ## Crash and the server
 
 - The server picks the crash point and keeps it secret until the round ends.

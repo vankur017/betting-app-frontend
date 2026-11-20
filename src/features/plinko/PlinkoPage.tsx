@@ -13,6 +13,7 @@ import { messageOf } from '../../lib/errors';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { estimatePayout, formatCoins } from '../../lib/money';
 import { compactMultiplier, multiplierTable, readPlinkoSettings } from '../../lib/plinko';
+import { outcomeSound, sound } from '../../lib/sound';
 import { useWallet } from '../../wallet/wallet-context';
 import { BetAmountField } from '../games/BetAmountField';
 import { GameLayout } from '../games/GameLayout';
@@ -56,8 +57,14 @@ export function PlinkoPage() {
   const history = useRecentRounds('plinko', historyVersion);
 
   // Each result is revealed (balance, history, banner) when its ball lands.
-  const landings = useRevealQueue<PlinkoRound>((round) => {
+  const landings = useRevealQueue<PlinkoRound>((round, live) => {
     setLastResult(round);
+    if (live) {
+      sound.play('land');
+      // A thud for every landing; a chime only when the bucket paid more than the bet.
+      const tone = outcomeSound(round.stake, round.virtualReturn);
+      if (tone !== 'lose') sound.play(tone);
+    }
     void refreshWallet();
     setHistoryVersion((version) => version + 1);
   });
@@ -94,6 +101,7 @@ export function PlinkoPage() {
         pendingPlay.current = null;
         // The server's numbers are final; the table only draws the board.
         const roundTable = multiplierTable(settings, round.rows, round.risk) ?? table;
+        sound.play('drop');
         landings.schedule(round, startDrop(visual, round, roundTable, performance.now()));
       } catch (error) {
         const isNetworkError = error instanceof ApiError && error.status === 0;

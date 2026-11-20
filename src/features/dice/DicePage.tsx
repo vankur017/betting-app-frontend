@@ -29,6 +29,7 @@ import {
 import { messageOf } from '../../lib/errors';
 import { newIdempotencyKey } from '../../lib/idempotency';
 import { estimatePayout, formatCoins, formatSignedCoins } from '../../lib/money';
+import { outcomeSound, sound } from '../../lib/sound';
 import { useWallet } from '../../wallet/wallet-context';
 import { BetAmountField } from '../games/BetAmountField';
 import { GameLayout } from '../games/GameLayout';
@@ -94,8 +95,9 @@ export function DicePage() {
   const history = useRecentRounds('dice', historyVersion);
 
   // A roll is revealed (banner, balance, history) when its marker stops.
-  const reveals = useRevealQueue<DiceRound>((round) => {
+  const reveals = useRevealQueue<DiceRound>((round, live) => {
     setResult(round);
+    if (live) sound.play(outcomeSound(round.stake, round.virtualReturn));
     void refreshWallet();
     setHistoryVersion((version) => version + 1);
   });
@@ -183,7 +185,9 @@ export function DicePage() {
         pendingRoll.current = null;
         // Rolling again mid-animation shows the previous result at once instead of waiting.
         reveals.flush();
-        reveals.schedule(round, startRoll(visual, round, performance.now()));
+        const durationMs = startRoll(visual, round, performance.now());
+        sound.play('roll', { durationMs });
+        reveals.schedule(round, durationMs);
       } catch (error) {
         const isNetworkError = error instanceof ApiError && error.status === 0;
         if (!isNetworkError) pendingRoll.current = null;

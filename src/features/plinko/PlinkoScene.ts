@@ -6,6 +6,7 @@ import {
   compactMultiplier,
   type BucketTone,
 } from '../../lib/plinko';
+import { sound } from '../../lib/sound';
 import { dropProgress, settleDrops, type PlinkoVisualState } from './plinkoVisualState';
 
 const PEG_COLOR = 0xc9d2e6;
@@ -85,6 +86,8 @@ export class PlinkoScene extends Phaser.Scene {
   private ballGraphics?: Phaser.GameObjects.Graphics;
   private labels: Phaser.GameObjects.Text[] = [];
   private labelKey = '';
+  /** Pegs each falling ball has hit so far, so every peg ticks exactly once. */
+  private readonly pegsHit = new Map<string, number>();
 
   constructor(state: PlinkoVisualState) {
     super({ key: 'plinko' });
@@ -180,10 +183,19 @@ export class PlinkoScene extends Phaser.Scene {
     });
 
     // Falling balls, each with a short trail. A dark outline keeps them visible over buckets.
+    for (const id of this.pegsHit.keys()) {
+      if (!drops.some((drop) => drop.roundId === id)) this.pegsHit.delete(id);
+    }
     const r = layout.ballRadius;
     for (const drop of drops) {
       if (drop.path.length === 0) continue;
       const progress = dropProgress(drop, now);
+      const segments = drop.path.length + 1;
+      const segment = Math.min(segments - 1, Math.floor(progress * segments));
+      if (segment > (this.pegsHit.get(drop.roundId) ?? 0)) {
+        this.pegsHit.set(drop.roundId, segment);
+        sound.play('peg', { step: segment / drop.path.length });
+      }
       if (!reducedMotion) {
         TRAIL.forEach((lag, i) => {
           const point = ballAt(drop.path, Math.max(0, progress - lag));
