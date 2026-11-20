@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { cashOutCrashRound, getCrashRound, startCrashRound } from '../../api/crash';
 import { listGames } from '../../api/games';
 import { ApiError } from '../../api/http';
@@ -16,6 +15,7 @@ import { newIdempotencyKey } from '../../lib/idempotency';
 import { formatCoins, formatSignedCoins, parseCoins, toCoinInput } from '../../lib/money';
 import { useWallet } from '../../wallet/wallet-context';
 import { gameBySlug } from '../games/catalog';
+import { GameHeader } from '../games/GameHeader';
 import { CrashCanvas } from './CrashCanvas';
 import { CrashRecentRounds } from './CrashRecentRounds';
 import {
@@ -48,7 +48,7 @@ function RoundResult({ round }: { round: CrashEndedRound }) {
   return (
     <div
       className={cx(
-        'rounded-xl border p-4',
+        'animate-pop rounded-xl border p-4',
         won ? 'border-mint-500/40 bg-mint-500/10' : 'border-rose-500/40 bg-rose-500/10',
       )}
     >
@@ -276,13 +276,7 @@ export function CrashPage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <Link to="/" className="text-sm text-night-300 hover:text-night-100">
-          ← Lobby
-        </Link>
-        <h1 className="mt-2 text-2xl font-bold sm:text-3xl">Crash</h1>
-        <p className="mt-1 text-sm text-night-300">{CRASH?.tagline}</p>
-      </div>
+      <GameHeader game="crash" />
 
       {games.status === 'error' ? (
         <Alert tone="warning">Stake limits are unavailable: {games.error}</Alert>
@@ -291,7 +285,7 @@ export function CrashPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <section
           aria-labelledby="crash-controls-heading"
-          className="order-2 flex flex-col gap-5 rounded-2xl border border-night-800 bg-night-900 p-5 lg:order-1"
+          className="order-2 flex flex-col gap-5 panel p-5 lg:order-1"
         >
           <h2 id="crash-controls-heading" className="sr-only">
             Round controls
@@ -377,7 +371,7 @@ export function CrashPage() {
       <div className="grid gap-6 lg:grid-cols-2">
         <section
           aria-labelledby="crash-rules-heading"
-          className="rounded-2xl border border-night-800 bg-night-900 p-5"
+          className="panel p-5"
         >
           <h2 id="crash-rules-heading" className="text-lg font-semibold">
             How Crash works

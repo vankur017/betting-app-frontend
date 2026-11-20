@@ -26,9 +26,10 @@ export const GAMES: readonly GameInfo[] = [
     name: 'Plinko',
     tagline: 'Drop a ball through the pegs and land in a multiplier bucket.',
     rules: [
-      'Choose a virtual stake and a supported board setting.',
-      'The server picks the result bucket before the animation plays.',
+      'Choose a virtual stake, a board of 8, 12 or 16 rows, and a risk level.',
+      "The server picks the ball's path and settles the round before the animation plays. The animation only replays it.",
       'Your return is the stake times the multiplier of the bucket the ball lands in.',
+      'Edge buckets pay the most and are hit the least. Higher risk raises the edges and lowers the middle.',
     ],
   },
   {
@@ -36,10 +37,11 @@ export const GAMES: readonly GameInfo[] = [
     name: 'Mines',
     tagline: 'Reveal safe tiles and cash out before you hit a mine.',
     rules: [
-      'Choose a virtual stake and a number of mines.',
-      'The server hides the mines. Their positions are never sent to your browser.',
+      'Choose a virtual stake and a number of mines (1 to 24) for the 5×5 board.',
+      'The server hides the mines. Their positions are only sent to your browser once the round ends.',
       'Each safe tile raises the multiplier. Revealing a mine ends the round and the stake is lost.',
-      'Cash out after a safe reveal to settle at the current multiplier.',
+      'Cash out after at least one safe tile to settle at the current multiplier. Revealing every safe tile cashes out for you.',
+      'If you leave mid-round, the round waits for you and resumes when you come back.',
     ],
   },
   {
@@ -47,9 +49,10 @@ export const GAMES: readonly GameInfo[] = [
     name: 'Dice',
     tagline: 'Pick a target, roll, and see if the result lands in your range.',
     rules: [
-      'Choose a virtual stake and a target within the allowed range.',
-      'The server generates the roll and checks it against your target.',
-      'Lower-probability targets pay a higher multiplier. The server calculates every return.',
+      'Choose a virtual stake, a target, and whether to roll under or over it.',
+      'The server rolls a number from 0.00 to 99.99 and checks it against your target.',
+      'Win chance can be set from 1% to 98%. Lower chances pay a higher multiplier: 50% pays 1.98x.',
+      'The server calculates every return. The preview on this page is only a guide.',
     ],
   },
 ];

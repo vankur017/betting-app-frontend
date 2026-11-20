@@ -6,11 +6,14 @@ import { env } from './config/env';
 import { LoginPage } from './features/auth/LoginPage';
 import { RegisterPage } from './features/auth/RegisterPage';
 import { CrashPage } from './features/crash/CrashPage';
+import { DicePage } from './features/dice/DicePage';
 import { GamePlaceholderPage } from './features/games/GamePlaceholderPage';
 import { HelpPage } from './features/help/HelpPage';
 import { HistoryPage } from './features/history/HistoryPage';
 import { LobbyPage } from './features/lobby/LobbyPage';
+import { MinesPage } from './features/mines/MinesPage';
 import { NotFoundPage } from './features/NotFoundPage';
+import { PlinkoPage } from './features/plinko/PlinkoPage';
 import { ProfilePage } from './features/profile/ProfilePage';
 import { WalletPage } from './features/wallet/WalletPage';
 import { WalletProvider } from './wallet/WalletProvider';
@@ -38,6 +41,9 @@ export function App() {
                 <Route path="history" element={<HistoryPage />} />
                 <Route path="profile" element={<ProfilePage />} />
                 <Route path="games/crash" element={<CrashPage />} />
+                <Route path="games/plinko" element={<PlinkoPage />} />
+                <Route path="games/mines" element={<MinesPage />} />
+                <Route path="games/dice" element={<DicePage />} />
                 <Route path="games/:slug" element={<GamePlaceholderPage />} />
               </Route>
               <Route path="*" element={<NotFoundPage />} />

@@ -17,7 +17,7 @@ export function CrashCanvas({ state }: { state: CrashVisualState }) {
     const game = new Phaser.Game({
       type: Phaser.AUTO,
       parent,
-      backgroundColor: '#0c1220',
+      transparent: true,
       banner: false,
       audio: { noAudio: true },
       scale: {
@@ -36,7 +36,10 @@ export function CrashCanvas({ state }: { state: CrashVisualState }) {
     <div
       ref={containerRef}
       aria-hidden="true"
-      className="h-64 w-full overflow-hidden rounded-2xl border border-night-800 bg-night-900 sm:h-80 lg:h-[420px]"
+      style={{
+        background: `radial-gradient(70% 65% at 50% 40%, rgb(62 230 160 / 0.14), transparent 70%), linear-gradient(180deg, rgb(20 29 50 / 0.82), rgb(11 17 32 / 0.9))`,
+      }}
+      className="h-64 w-full overflow-hidden panel sm:h-80 lg:h-[420px]"
     />
   );
 }

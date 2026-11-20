@@ -15,9 +15,9 @@ export function GamePlaceholderPage() {
     <div className="flex flex-col gap-8">
       <PageHeader title={game.name} description={game.tagline} />
       <Alert tone="info" title="Coming soon">
-        {game.name} is not playable yet. Crash is available now.
+        {game.name} is not playable yet. Pick another game from the lobby.
       </Alert>
-      <section aria-labelledby="rules-heading" className="rounded-2xl border border-night-800 bg-night-900 p-6">
+      <section aria-labelledby="rules-heading" className="panel p-6">
         <h2 id="rules-heading" className="text-lg font-semibold">
           How {game.name} works
         </h2>

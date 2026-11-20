@@ -45,7 +45,7 @@ export function WalletPage() {
         <>
           <section
             aria-labelledby="balance-heading"
-            className="rounded-2xl border border-night-800 bg-night-900 p-6"
+            className="panel p-6"
           >
             <h2 id="balance-heading" className="text-sm font-medium text-night-300">
               Demo wallet · {wallet.playerName}

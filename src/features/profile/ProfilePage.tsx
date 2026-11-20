@@ -40,7 +40,7 @@ export function ProfilePage() {
     <div className="flex max-w-2xl flex-col gap-8">
       <PageHeader title="Profile" description="Your account details." />
       {error ? <Alert tone="error">{error}</Alert> : null}
-      <dl className="divide-y divide-night-800 rounded-2xl border border-night-800 bg-night-900">
+      <dl className="divide-y divide-white/5 panel">
         {rows.map(([label, value]) => (
           <div key={label} className="flex flex-col gap-1 px-5 py-4 sm:flex-row sm:justify-between">
             <dt className="text-sm text-night-300">{label}</dt>

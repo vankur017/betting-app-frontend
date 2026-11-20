@@ -4,7 +4,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { env } from '../../config/env';
 import { GAMES } from '../games/catalog';
 
-const sectionClass = 'scroll-mt-24 rounded-2xl border border-night-800 bg-night-900 p-6';
+const sectionClass = 'scroll-mt-24 panel p-6';
 
 export function HelpPage() {
   const { hash } = useLocation();

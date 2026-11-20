@@ -27,12 +27,14 @@ export function BalanceBadge() {
   return (
     <Link
       to="/wallet"
-      className="flex items-center gap-2 rounded-full border border-night-700 bg-night-900 px-3 py-1.5 text-sm font-semibold hover:border-mint-500/60"
+      className="group flex items-center gap-2 rounded-full border border-mint-400/20 bg-linear-to-b from-mint-500/15 to-mint-500/5 py-1 pl-1.5 pr-3.5 text-sm font-semibold shadow-[0_8px_24px_-14px_rgb(22_199_132/0.8)] transition hover:border-mint-400/50"
       aria-label={`Virtual coin balance: ${amount} ${wallet.currencyCode}. Open wallet.`}
     >
-      <CoinIcon />
-      <span className="tabular-nums">{amount}</span>
-      <span className="text-xs font-medium text-night-300">{wallet.currencyCode}</span>
+      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-night-950/60">
+        <CoinIcon />
+      </span>
+      <span className="tabular-nums text-night-100">{amount}</span>
+      <span className="text-xs font-semibold text-mint-300">{wallet.currencyCode}</span>
     </Link>
   );
 }
